@@ -15,6 +15,7 @@ const rateLimiter = require('./middleware/rateLimiter');
 // Routes
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/videos');
+const encodingRoutes = require('./routes/encoding');
 const streamRoutes = require('./routes/stream');
 const settingsRoutes = require('./routes/settings');
 const monitoringRoutes = require('./routes/monitoring');
@@ -57,6 +58,7 @@ app.use('/api/stream', streamRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 
+app.use('/api/encoding', encodingRoutes);
 // Error handling
 app.use(errorHandler);
 

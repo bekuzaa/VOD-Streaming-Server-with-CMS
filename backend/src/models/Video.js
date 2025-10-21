@@ -2,9 +2,25 @@ const mongoose = require('mongoose');
 
 const qualitySchema = new mongoose.Schema({
   resolution: String,
+  width: Number,
+  height: Number,
   bitrate: String,
+  codec: String,
   path: String,
-  size: Number
+  size: Number,
+  fps: Number
+}, { _id: false });
+
+const thumbnailSchema = new mongoose.Schema({
+  url: String,
+  path: String,
+  timestamp: Number,
+  width: Number,
+  height: Number,
+  isPrimary: {
+    type: Boolean,
+    default: false
+  }
 }, { _id: false });
 
 const videoSchema = new mongoose.Schema({
@@ -27,24 +43,74 @@ const videoSchema = new mongoose.Schema({
     unique: true
   },
   duration: {
-    type: Number, // in seconds
+    type: Number,
     default: 0
   },
   size: {
-    type: Number, // in bytes
+    type: Number,
     required: true
   },
   mimeType: {
     type: String,
     required: true
   },
-  thumbnailPath: {
+  
+  // Thumbnails (1-5 pictures)
+  thumbnails: [thumbnailSchema],
+  
+  // Primary thumbnail (for display)
+  primaryThumbnail: {
     type: String
   },
+  
+  // HLS Output
   hlsMasterPlaylist: {
     type: String
   },
+  
+  // Multiple quality outputs
   qualities: [qualitySchema],
+  
+  // Encoding settings used
+  encodingProfile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EncodingProfile'
+  },
+  
+  // Storage configuration
+  storageType: {
+    type: String,
+    enum: ['local', 's3', 'gcs', 'azure', 'cloudinary'],
+    default: 'local'
+  },
+  storageLocation: {
+    bucket: String,
+    region: String,
+    path: String,
+    url: String
+  },
+  
+  // Watermark
+  watermark: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    path: String,
+    position: {
+      type: String,
+      enum: ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'],
+      default: 'bottom-right'
+    },
+    opacity: {
+      type: Number,
+      default: 0.7,
+      min: 0,
+      max: 1
+    }
+  },
+  
+  // Status
   status: {
     type: String,
     enum: ['uploading', 'processing', 'ready', 'failed', 'deleted'],
@@ -54,6 +120,10 @@ const videoSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  transcodingStartedAt: Date,
+  transcodingCompletedAt: Date,
+  
+  // Statistics
   views: {
     type: Number,
     default: 0
@@ -62,6 +132,8 @@ const videoSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  
+  // Metadata
   tags: [{
     type: String,
     trim: true
@@ -82,21 +154,28 @@ const videoSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
+  // Video metadata
   metadata: {
     codec: String,
     width: Number,
     height: Number,
     fps: Number,
-    aspectRatio: String
+    aspectRatio: String,
+    bitrate: Number,
+    audioCodec: String,
+    audioChannels: Number,
+    audioSampleRate: Number
   }
 }, {
   timestamps: true
 });
 
-// Indexes for performance
+// Indexes
 videoSchema.index({ title: 'text', description: 'text', tags: 'text' });
 videoSchema.index({ status: 1 });
 videoSchema.index({ uploadedBy: 1 });
 videoSchema.index({ createdAt: -1 });
+videoSchema.index({ storageType: 1 });
 
 module.exports = mongoose.model('Video', videoSchema);
