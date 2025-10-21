@@ -1,0 +1,77 @@
+VOD Streaming Server - Advanced Encoding Features v2.0
+=======================================================
+
+COMPLETED FEATURES:
+==================
+
+1. MULTI-RESOLUTION TRANSCODING
+   - 240p to 4K (2160p) support
+   - Single or Multi-resolution output
+   - Customizable bitrate per resolution
+   - Adjustable FPS (24, 30, 60)
+
+2. CODEC SUPPORT
+   - H.264 (AVC) - Default, best compatibility
+   - H.265 (HEVC) - Better compression
+   - VP9 - Web optimized
+
+3. WATERMARK SYSTEM
+   - Upload PNG/JPEG/WebP
+   - 5 position options
+   - Opacity control (0-100%)
+   - Automatic overlay
+
+4. THUMBNAIL GENERATION
+   - 1-5 thumbnails per video
+   - Auto-distributed timestamps
+   - Primary thumbnail selection
+   - 1280x720 default size
+
+5. CLOUD STORAGE
+   - Local storage (default)
+   - Amazon S3 integration
+   - Google Cloud Storage (ready)
+   - Azure Blob Storage (ready)
+
+NEW FILES CREATED:
+==================
+- backend/src/models/EncodingProfile.js
+- backend/src/models/Video.js (enhanced)
+- backend/src/services/advancedTranscoder.js
+- backend/src/services/storageService.js
+- backend/src/controllers/encodingController.js
+- backend/src/routes/encoding.js
+- frontend/src/pages/EncodingSettings.js
+- ENCODING_GUIDE.md
+
+NEW API ENDPOINTS:
+==================
+GET  /api/encoding/presets
+GET  /api/encoding/profiles
+POST /api/encoding/profiles
+PUT  /api/encoding/profiles/:id
+DELETE /api/encoding/profiles/:id
+POST /api/encoding/transcode/:videoId
+GET  /api/encoding/progress/:videoId
+POST /api/encoding/watermark/upload
+GET  /api/encoding/storage/config
+POST /api/encoding/storage/test
+
+USAGE EXAMPLE:
+==============
+Single Resolution:
+curl -X POST http://localhost:5000/api/encoding/transcode/VIDEO_ID \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"profiles":[{"resolution":"720p"}],"codec":"h264","thumbnailCount":5}'
+
+Multi-Resolution with Watermark:
+curl -X POST http://localhost:5000/api/encoding/transcode/VIDEO_ID \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"profiles":[{"resolution":"1080p"},{"resolution":"720p"},{"resolution":"480p"}],"codec":"h264","watermark":{"enabled":true,"path":"/watermarks/logo.png","position":"bottom-right","opacity":0.7},"thumbnailCount":5,"storageType":"s3"}'
+
+GITHUB REPOSITORY:
+==================
+https://github.com/bekuzaa/VOD-Streaming-Server-with-CMS
+
+VERSION: 2.0.0
+UPDATED: 2025-01-21
