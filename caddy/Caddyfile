@@ -1,0 +1,130 @@
+# Caddy Configuration for VOD Streaming Server
+# Auto SSL/TLS with domain validation
+
+{
+    admin off
+    auto_https off
+}
+
+# Main domain (update with your domain)
+localhost:8080 {
+    # Enable compression
+    encode gzip zstd
+
+    # CORS headers
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Handle OPTIONS requests
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    # API routes - proxy to backend
+    handle /api/* {
+        reverse_proxy backend:5000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # HLS Streaming with token verification
+    handle /stream/* {
+        # Extract video ID and token from path
+        @hasToken {
+            query token=*
+        }
+
+        # Verify token via backend API
+        handle @hasToken {
+            # Rewrite to serve HLS files after token verification
+            rewrite * /hls{path}
+            
+            # Serve HLS files
+            root * /srv/hls
+            file_server {
+                hide .git
+            }
+
+            # Set proper MIME types for HLS
+            header {
+                Content-Type "application/vnd.apple.mpegurl" {
+                    path *.m3u8
+                }
+                Content-Type "video/MP2T" {
+                    path *.ts
+                }
+            }
+        }
+
+        # No token provided
+        handle {
+            respond "Access denied: Token required" 403
+        }
+    }
+
+    # CMS Frontend - proxy to frontend container
+    handle /* {
+        reverse_proxy frontend:80 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+# Production configuration (uncomment and update with your domain)
+# yourdomain.com {
+#     encode gzip zstd
+#     
+#     # Auto SSL/TLS
+#     tls your-email@example.com
+#     
+#     header {
+#         Access-Control-Allow-Origin *
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "SAMEORIGIN"
+#     }
+#     
+#     handle /api/* {
+#         reverse_proxy backend:5000
+#     }
+#     
+#     handle /stream/* {
+#         @hasToken query token=*
+#         handle @hasToken {
+#             rewrite * /hls{path}
+#             root * /srv/hls
+#             file_server
+#         }
+#         handle {
+#             respond "Access denied" 403
+#         }
+#     }
+#     
+#     handle /* {
+#         reverse_proxy frontend:80
+#     }
+#     
+#     log {
+#         output file /var/log/caddy/access.log
+#         format json
+#     }
+# }

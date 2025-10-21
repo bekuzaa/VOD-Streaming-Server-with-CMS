@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: vod_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: vod_streaming
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - vod_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: vod_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vod_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vod_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:admin123@mongodb:27017/vod_streaming?authSource=admin
+      REDIS_URL: redis://:redis123@redis:6379
+      JWT_SECRET: change-this-super-secret-key-in-production
+      TOKEN_EXPIRY: 3600
+      ALLOWED_DOMAINS: localhost,127.0.0.1
+      STORAGE_PATH: /app/storage
+      MAX_FILE_SIZE: 5368709120
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./storage:/app/storage
+      - ./backend/logs:/app/logs
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vod_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend CMS
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vod_frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:5000
+      REACT_APP_STREAM_URL: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - vod_network
+
+  # Caddy Server (Reverse Proxy + Auto SSL)
+  caddy:
+    image: caddy:2-alpine
+    container_name: vod_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./storage/hls:/srv/hls:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - vod_network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  vod_network:
+    driver: bridge

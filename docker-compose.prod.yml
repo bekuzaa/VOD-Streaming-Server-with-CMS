@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: vod_mongodb_prod
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: vod_streaming
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - vod_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: vod_redis_prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - vod_network
+
+  backend:
+    build: ./backend
+    container_name: vod_backend_prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/vod_streaming?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vod_network
+
+  frontend:
+    build: ./frontend
+    container_name: vod_frontend_prod
+    restart: always
+    networks:
+      - vod_network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: vod_caddy_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./storage/hls:/srv/hls:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - vod_network
+
+volumes:
+  mongodb_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  vod_network:
+    driver: bridge
